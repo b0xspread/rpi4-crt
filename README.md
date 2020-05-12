@@ -30,7 +30,7 @@ audio_pwm_mode=2
 There are many similar cables out there bundled with various A/V equipment, however most of them have ground on PIN1 and won't work, **but the cable we need must have composite video on PIN1.** The wiring of the other pins doesn't matter. So for example if PIN1 on the 3.5mm jack is wired to the white or red RCA connector it will still work as video, you just plug that into the TV Composite port instead of the yellow connector. This is the cable I used and can verify that it works and has the correct wiring: https://www.adafruit.com/product/2881
 
 ## 3. Now using `sdtv_mode=0/2` you will be in 480i. 
-I recommend you keep it that way as a boot default and Emulationstation. Try playing your favorite ROMs first, and you will probably notice that the interlace shake is rather annoying, and there may be other issues. In experience Sakitoshi's tvout_smart and tvout_sharp shaders (https://github.com/Sakitoshi/retropie-crt-tvout/tree/master/to_configs/all/retroarch/shaders) do a great job of improving things quite a bit, but just make sure you **Shader #X Filter to Linear**. Try one of them as the only shader pass first. You may want to check out the configs in that repo as some platforms need additional tuning.
+I recommend you keep it that way as a boot default and Emulationstation. Try playing your favorite ROMs first, and you will probably notice that the interlace shake is rather annoying, and there may be other issues. In experience Sakitoshi's `tvout_smart` and `tvout_sharp` shaders (https://github.com/Sakitoshi/retropie-crt-tvout/tree/master/to_configs/all/retroarch/shaders) do a great job of improving things quite a bit, but just make sure you **Shader #X Filter to Linear**. Try one of them as the only shader pass first. You may want to check out the configs in that repo as some platforms need additional tuning.
 
 
 ## 4. 240p - Background
@@ -39,17 +39,19 @@ You can boot directly into 240p by setting `sdtv_mode=16/18` for NTSC/PAL.
 
 Mode switching between 480i and 240p via DRM/KMS is currently not possible. The `vc4` video driver used by `drm_kms_helper` will only add a single mode.
 
-Source:
-https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_drv.c#L283
-https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L256
-
-Installing X11 and adding ModeLines using xrandr also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC (encoder generating PAL or NTSC composite signal)
+Installing X11 and adding ModeLines using xrandr also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal)
 
 **TV mode selection is done by an atomic property on the encoder, because a drm_mode_modeinfo is insufficient to distinguish between PAL and PAL-M or NTSC and NTSC-J.**
 
 Source: https://dri.freedesktop.org/docs/drm/gpu/vc4.html
 
-The same applies to the changes needed for 240p output, they are:
+For example setting the default NTSC mode requires updating CONFIG0 and CONFIG1 registers, apart from the DRM modeline:
+https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L244
+https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L256
+https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L286
+
+
+In order to achieve 240p the following changes to the output are needed:
 
 - Integer number of lines (either 262 or 263) instead of 262.5 (x2 = 525) used for interlacing
 - This will cause the VSync pulse to be sent at the end of a scanline and not in the middle of it, thus the scanlines will be retraced instead of being shifted down due to the ramp restart of the electron beam sawtooth wave.
@@ -57,14 +59,13 @@ The same applies to the changes needed for 240p output, they are:
 
 Source: https://www.hdretrovision.com/blog/2018/10/22/engineering-csync-part-1-setting-the-stage
 
-**The only way that currently works more or less is using `tvservice` tool and enforcing the setting after retroarch has started**
 
-In order to achieve 240p (`sdtv_mode=16/18`) the firmware does the following things:
+When we set a progressive mode in `config.txt` (`sdtv_mode=16/18`) the firmware does the following things:
 
-A. Set the progressive scan bit in the `VEC_CONFIG2` register of the VEC register set:
+A. Sets the progressive scan bit in the `VEC_CONFIG2` register of the VEC register set:
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L104
 
-B. Remove the interlace flag for the mode:
+B. Removes the interlace flag for the mode:
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L260
 
 There are probably other steps needed as well.
@@ -81,15 +82,22 @@ https://github.com/raspberrypi/userland/blob/master/interface/vmcs_host/vc_vchi_
 I believe the VEC in the new BCM2711 SoC is the same as in the older BCM2835 therefore the register regions remain valid and this is why `tvservice` sitll works on RPi4.
 
 
+
 ## 240p - How to make it work
 
-The good news is 240p per ROM/Platform is still possible!
+The good news is 240p per ROM/Platform is still possible! Now granted it's not EXACTLY 240p since DRM/KMS doesn't recognize the changes we make with `tvservice` and the framebuffer still has a 480 line vertical resolution and there is still scaling. On my 20" Sony Trinitron, I only have to apply the `tvout_smart` or `tvout_sharp` shaders and horizontal and vertical scrolling seems fine. 240p test suite includes a horizontal scroll test for various platforms: http://junkerhq.net/xrgb/index.php?title=240p_test_suite
+
+If you aren't happy with the outcome, read this post as it has a lot of information on tweaking the output in 240p: https://retropie.org.uk/forum/topic/11628/240p-and-mame-scaling/12
+
+
 
 I put together a simple script `vmodes_watcher.py` that runs in the background and monitors the value of a desired_mode file. If the file is modified, it waits for `retroarch` to start and then changes the screen to the desired mode with `tvservice`.
 
 to install it do the following
 
 ```
+$ git clone git@github.com:b0xspread/rpi4-crt.git
+$ cd rpi4-crt
 $ cp runcommand-onend.sh  runcommand-onstart.sh  vmodes_watcher.py /opt/retropie/configs/all
 $ mkdir /opt/retropie/configs/all/desired_mode
 $ echo 'NTSC 4:3 P' > /opt/retropie/configs/all/desired_mode/value
