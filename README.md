@@ -85,11 +85,18 @@ I believe the VEC in the new BCM2711 SoC is the same as in the older BCM2835 the
 
 ## 240p - How to make it work
 
-The good news is 240p per ROM/Platform is still possible! Now granted it's not EXACTLY 240p since DRM/KMS doesn't recognize the changes we make with `tvservice` and the framebuffer still has a 480 line vertical resolution and there is still scaling. On my 20" Sony Trinitron, I only have to apply the `tvout_smart` or `tvout_sharp` shaders and horizontal and vertical scrolling seems fine. 240p test suite includes a horizontal scroll test for various platforms: http://junkerhq.net/xrgb/index.php?title=240p_test_suite
+The good news is 240p per ROM/Platform is still possible! Now granted it's not EXACTLY 240p since DRM/KMS doesn't recognize the changes we make with `tvservice`. The framebuffer still has a 480 line resolution, but the interlacing flicker is gone and the TV is outputting 240p on screen. On my 20" Sony Trinitron, NES games look perfect with only the `tvout_smart` or `tvout_sharp` shader applied, horizontal and vertical scrolling seems fine. 240p test suite includes a horizontal scroll test for various platforms: http://junkerhq.net/xrgb/index.php?title=240p_test_suite
 
 If you aren't happy with the outcome, read this post as it has a lot of information on tweaking the output in 240p: https://retropie.org.uk/forum/topic/11628/240p-and-mame-scaling/12
 
+### Mode Enforcement
 
+Now the last problem to resolve is enforcing the output. Out of the box RetroPie comes with a KMS DRM modesetting mechanism that works like this:
+- You set the desired mode in videomodes.cfg
+- runcommand.sh injects the modeset environment variables for SDL2 modesetting
+- retroarch starts and loads SDL2 which sees the environment variables and sets the mode
+
+Unfortunately, this thows us back into 480i, as it is the only available mode. Attempting to set progressive scan with `tvservice` prior to retroarch launching will yield the same outcome. Our only solution is to wait for retroarch/SDL2 to finish loading and then switch to progressive scan.
 
 I put together a simple script `vmodes_watcher.py` that runs in the background and monitors the value of a desired_mode file. If the file is modified, it waits for `retroarch` to start and then changes the screen to the desired mode with `tvservice`.
 
