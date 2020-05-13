@@ -29,8 +29,12 @@ audio_pwm_mode=2
 ## 2. You will need a correct 4-pole 3.5mm to A/V RCA cable. 
 There are many similar cables out there bundled with various A/V equipment, however most of them have ground on PIN1 and won't work, **but the cable we need must have composite video on PIN1.** The wiring of the other pins doesn't matter. So for example if PIN1 on the 3.5mm jack is wired to the white or red RCA connector it will still work as video, you just plug that into the TV Composite port instead of the yellow connector. This is the cable I used and can verify that it works and has the correct wiring: https://www.adafruit.com/product/2881
 
+I believe the following cable is also wired correctly: https://www.amazon.com/Gam3Gear-Composite-Cable-Microsoft-XBox-360/dp/B011KLLMR2
+
+If you don't see the rainbow screen on your display, try power cycling.
+
 ## 3. Now using `sdtv_mode=0/2` you will be in 480i. 
-I recommend you keep it that way as a boot default and Emulationstation. Try playing your favorite ROMs first, and you will probably notice that the interlace shake is rather annoying, and there may be other issues. In experience Sakitoshi's `tvout_smart` and `tvout_sharp` shaders (https://github.com/Sakitoshi/retropie-crt-tvout/tree/master/to_configs/all/retroarch/shaders) do a great job of improving things quite a bit, but just make sure you **Shader #X Filter to Linear**. Try one of them as the only shader pass first. You may want to check out the configs in that repo as some platforms need additional tuning.
+I recommend you keep it that way as a boot default and Emulationstation. Try playing your favorite ROMs first, and you will probably notice that the interlace shake is rather annoying, and there may be other issues. In my experience Sakitoshi's `tvout_smart` and `tvout_sharp` shaders (https://github.com/Sakitoshi/retropie-crt-tvout/tree/master/to_configs/all/retroarch/shaders) do a great job of improving things quite a bit, but just make sure you **Shader #X Filter to Linear**. Try one of them as the only shader pass first. You may want to check out the configs in that repo as some platforms need additional tuning.
 
 
 ## 4. 240p - Background
@@ -39,7 +43,7 @@ You can boot directly into 240p by setting `sdtv_mode=16/18` for NTSC/PAL.
 
 Mode switching between 480i and 240p via DRM/KMS is currently not possible. The `vc4` video driver used by `drm_kms_helper` will only add a single mode.
 
-Installing X11 and adding ModeLines using xrandr also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal)
+Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal)
 
 **TV mode selection is done by an atomic property on the encoder, because a drm_mode_modeinfo is insufficient to distinguish between PAL and PAL-M or NTSC and NTSC-J.**
 
@@ -51,7 +55,7 @@ https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L256
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L286
 
 
-In order to achieve 240p the following changes to the output are needed:
+In order to achieve 240p the following changes to the output signal are needed:
 
 - Integer number of lines (either 262 or 263) instead of 262.5 (x2 = 525) used for interlacing
 - This will cause the VSync pulse to be sent at the end of a scanline and not in the middle of it, thus the scanlines will be retraced instead of being shifted down due to the ramp restart of the electron beam sawtooth wave.
@@ -72,7 +76,7 @@ There are probably other steps needed as well.
 
 Source: https://github.com/raspberrypi/firmware/issues/683#issuecomment-283179792
 
-tvservice essentially sends VCHI message requesting the corresponding sdtv_mode
+`tvservice` essentially sends VCHI message requesting the corresponding sdtv_mode
 
 https://github.com/raspberrypi/userland/blob/2448644657e5fbfd82299416d218396ee1115ece/interface/vmcs_host/vc_sdtv.h#L60
 https://github.com/raspberrypi/userland/blob/master/host_applications/linux/apps/tvservice/tvservice.c#L703
@@ -96,7 +100,7 @@ Now the last problem to resolve is enforcing the output. Out of the box RetroPie
 - runcommand.sh injects the modeset environment variables for SDL2 modesetting
 - retroarch starts and loads SDL2 which sees the environment variables and sets the mode
 
-Unfortunately, this thows us back into 480i, as it is the only available mode. Attempting to set progressive scan with `tvservice` prior to retroarch launching will yield the same outcome. Our only solution is to wait for retroarch/SDL2 to finish loading and then switch to progressive scan.
+Unfortunately, this thows us back into 480i, as it is the only mode defined. Attempting to set progressive scan with `tvservice` prior to retroarch launching will yield the same outcome. Our only solution is to wait for retroarch/SDL2 to finish loading and then switch back to progressive scan.
 
 I put together a simple script `vmodes_watcher.py` that runs in the background and monitors the value of a desired_mode file. If the file is modified, it waits for `retroarch` to start and then changes the screen to the desired mode with `tvservice`.
 
@@ -114,7 +118,35 @@ $ sudo bash
 # reboot
 ```
 
+To verify the watcher is running:
+
+```
+$ ps ax | grep vmodes_watcher.py$
+  595 ?        Sl     0:00 python3 -u /opt/retropie/configs/all/vmodes_watcher.py
+```
+
+To monitor activity:
+
+```
+$ watch cat /var/log/vmodes_watcher.log
+```
+
+
 Now try playing a ROM from a platform with 240p support (ex. NES). If everything installed correctly you should no longer see the flicker. Apply those tvout shaders previously mentioned and see which one you like best.
+
+If you were monitoring the log file you should see something like this:
+
+```
+Every 2.0s: cat /var/log/vmodes_watcher.log                                                                 retropie: Wed May 13 19:29:54 2020
+
+Starting watcher...
+Waiting for retroarch to start...
+Waiting for retroarch to start...
+Waiting for retroarch to start...
+Waiting for retroarch to start...
+Setting desired display mode: 'NTSC 4:3 P' ...
+Powering on SDTV with explicit settings (mode:16 aspect:1)
+```
 
 When you exit, Emulationstation should be back to 480i (assuming `sdtv_mode=0`)
 
