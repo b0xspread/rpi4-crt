@@ -136,6 +136,8 @@ $ sudo bash
 # pip3 install watchdog psutil
 # chmod a+rwx -R /opt/retropie/configs/all/*.sh && sudo chmod a+rwx -R /opt/retropie/configs/all/*.py
 # sed  "s/exit 0/su pi -c 'python3 -u \/opt\/retropie\/configs\/all\/vmodes_watcher.py &> \/var\/log\/vmodes_watcher.log' &\nexit 0/" /etc/rc.local
+# echo > /var/log/vmodes_watcher.log
+# chmod 666 /var/log/vmodes_watcher.log
 # reboot
 ```
 
