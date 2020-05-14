@@ -126,13 +126,15 @@ I put together a simple script `vmodes_watcher.py` that runs in the background a
 to install it do the following
 
 ```
-$ git clone git@github.com:b0xspread/rpi4-crt.git
+$ git clone https://github.com/b0xspread/rpi4-crt.git
 $ cd rpi4-crt
 $ cp runcommand-onend.sh  runcommand-onstart.sh  vmodes_watcher.py /opt/retropie/configs/all
 $ mkdir /opt/retropie/configs/all/desired_mode
 $ echo 'NTSC 4:3 P' > /opt/retropie/configs/all/desired_mode/value
 $ sudo bash
+# apt install python3-pip
 # pip3 install watchdog psutil
+# chmod a+rwx -R /opt/retropie/configs/all/*.sh && sudo chmod a+rwx -R /opt/retropie/configs/all/*.py
 # sed  "s/exit 0/su pi -c 'python3 -u \/opt\/retropie\/configs\/all\/vmodes_watcher.py &> \/var\/log\/vmodes_watcher.log' &\nexit 0/" /etc/rc.local
 # reboot
 ```
