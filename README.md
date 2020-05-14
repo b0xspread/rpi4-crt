@@ -43,18 +43,17 @@ You can boot directly into 240p by setting `sdtv_mode=16/18` for NTSC/PAL.
 
 Mode switching between 480i and 240p via DRM/KMS is currently not possible.
 
-Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal), but the VEC is not accessible with the fake/firmware vc4-fkms-v3d driver and my understanding is the vc4-kms-v3d-pi4 which would allow direct hardware access is still experimental. The 
+Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal), but the VEC is not accessible with the fake/firmware `vc4-fkms-v3d driver` and my understanding is the `vc4-kms-v3d-pi4` which would allow direct hardware access is still experimental. The following gives a good description of the different driver models: 
 
-```
-FKMS (fake) uses the dispmanx and mailbox API's to talk to the firmware for things like the composition and video output stages.
+>FKMS (fake) uses the dispmanx and mailbox API's to talk to the firmware for things like the composition and video output stages.
+>
+>KMS does all that by accessing the HW registers directly from ARM space, bypassing the firmware completely.
 
-KMS does all that by accessing the HW registers directly from ARM space, bypassing the firmware completely.
+>It's down to what actually drives the video scaler (HVS), pixel valves, and output display blocks (HDMI/VEC/DSI/DPI).
+>With vc4-fkms-v3d this remains with the firmware, and the firmware still allows DispmanX or MMAL to add extra layers.
+>With vc4-kms-v3d, the Linux kernel is driving all that lot, and DRM prohibits multiple clients adding layers at the same time.
 
-It's down to what actually drives the video scaler (HVS), pixel valves, and output display blocks (HDMI/VEC/DSI/DPI).
-With vc4-fkms-v3d this remains with the firmware, and the firmware still allows DispmanX or MMAL to add extra layers.
-With vc4-kms-v3d, the Linux kernel is driving all that lot, and DRM prohibits multiple clients adding layers at the same time.
-```
-
+Source: https://www.raspberrypi.org/forums/viewtopic.php?p=1507622#p1507247
 
 **TV mode selection is done by an atomic property on the encoder, because a drm_mode_modeinfo is insufficient to distinguish between PAL and PAL-M or NTSC and NTSC-J.**
 
