@@ -41,9 +41,20 @@ I recommend you keep it that way as a boot default and Emulationstation. Try pla
 
 You can boot directly into 240p by setting `sdtv_mode=16/18` for NTSC/PAL.
 
-Mode switching between 480i and 240p via DRM/KMS is currently not possible. The `vc4` video driver add a single mode.
+Mode switching between 480i and 240p via DRM/KMS is currently not possible.
 
-Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal)
+Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal), but the VEC is not accessible with the fake/firmware vc4-fkms-v3d driver and my understanding is the vc4-kms-v3d-pi4 which would allow direct hardware access is still experimental. The 
+
+```
+FKMS (fake) uses the dispmanx and mailbox API's to talk to the firmware for things like the composition and video output stages.
+
+KMS does all that by accessing the HW registers directly from ARM space, bypassing the firmware completely.
+
+It's down to what actually drives the video scaler (HVS), pixel valves, and output display blocks (HDMI/VEC/DSI/DPI).
+With vc4-fkms-v3d this remains with the firmware, and the firmware still allows DispmanX or MMAL to add extra layers.
+With vc4-kms-v3d, the Linux kernel is driving all that lot, and DRM prohibits multiple clients adding layers at the same time.
+```
+
 
 **TV mode selection is done by an atomic property on the encoder, because a drm_mode_modeinfo is insufficient to distinguish between PAL and PAL-M or NTSC and NTSC-J.**
 
@@ -54,6 +65,7 @@ https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L244
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L256
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L286
 
+(example would apply in full KMS mode only)
 
 In order to achieve 240p the following changes to the output signal are needed:
 
@@ -64,7 +76,7 @@ In order to achieve 240p the following changes to the output signal are needed:
 Source: https://www.hdretrovision.com/blog/2018/10/22/engineering-csync-part-1-setting-the-stage
 
 
-When we set a progressive mode in `config.txt` (`sdtv_mode=16/18`) the firmware does the following things:
+When we set a progressive mode in `config.txt` (`sdtv_mode=16/18`) the ***firmware*** does something similar to what the vc4_vec driver would do in full KMS mode:
 
 A. Sets the progressive scan bit in the `VEC_CONFIG2` register of the VEC register set:
 https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/vc4/vc4_vec.c#L104
@@ -76,14 +88,14 @@ There are probably other steps needed as well.
 
 Source: https://github.com/raspberrypi/firmware/issues/683#issuecomment-283179792
 
-`tvservice` essentially sends a VCHI message requesting the corresponding sdtv_mode
+`tvservice` essentially sends a VCHI message requesting the corresponding sdtv_mode from the firmware:
 
 https://github.com/raspberrypi/userland/blob/2448644657e5fbfd82299416d218396ee1115ece/interface/vmcs_host/vc_sdtv.h#L60
 https://github.com/raspberrypi/userland/blob/master/host_applications/linux/apps/tvservice/tvservice.c#L703
 https://github.com/raspberrypi/userland/blob/master/interface/vmcs_host/vc_vchi_tvservice.c#L1213
 https://github.com/raspberrypi/userland/blob/master/interface/vmcs_host/vc_vchi_tvservice.c#L698
 
-The VEC in the new BCM2711 SoC is the same as in the older BCM2835 therefore the register regions remain valid and this is why `tvservice` sitll works on RPi4.
+The VEC in the new BCM2711 SoC is the same as in the older BCM2835 therefore the register regions remain valid:
 
 ```
  $ dtc -I dtb -O dts -o ~/devicetree.dts /boot/bcm2711-rpi-4-b.dtb
