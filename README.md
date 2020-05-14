@@ -108,7 +108,7 @@ Now the last problem to resolve is enforcing the output. Out of the box RetroPie
 - runcommand.sh injects the modeset environment variables for SDL2 modesetting
 - retroarch starts and loads SDL2 which sees the environment variables and sets the mode
 
-Unfortunately, this thows us back into 480i, as it is the only mode defined. Attempting to set progressive scan with `tvservice` prior to retroarch launching will yield the same outcome. Our only solution is to wait for retroarch/SDL2 to finish loading and then switch back to progressive scan.
+Unfortunately this doesnt work on RPi4, and thows us back into 480i, as it is the only mode defined. Attempting to set progressive scan with `tvservice` prior to retroarch launching will yield the same outcome. Our only solution is to wait for retroarch/SDL2 to finish loading and then switch back to progressive scan.
 
 I put together a simple script `vmodes_watcher.py` that runs in the background and monitors the value of a desired_mode file. If the file is modified, it waits for `retroarch` to start and then changes the screen to the desired mode with `tvservice`.
 
