@@ -76,14 +76,22 @@ There are probably other steps needed as well.
 
 Source: https://github.com/raspberrypi/firmware/issues/683#issuecomment-283179792
 
-`tvservice` essentially sends VCHI message requesting the corresponding sdtv_mode
+`tvservice` essentially sends a VCHI message requesting the corresponding sdtv_mode
 
 https://github.com/raspberrypi/userland/blob/2448644657e5fbfd82299416d218396ee1115ece/interface/vmcs_host/vc_sdtv.h#L60
 https://github.com/raspberrypi/userland/blob/master/host_applications/linux/apps/tvservice/tvservice.c#L703
 https://github.com/raspberrypi/userland/blob/master/interface/vmcs_host/vc_vchi_tvservice.c#L1213
 https://github.com/raspberrypi/userland/blob/master/interface/vmcs_host/vc_vchi_tvservice.c#L698
 
-I believe the VEC in the new BCM2711 SoC is the same as in the older BCM2835 therefore the register regions remain valid and this is why `tvservice` sitll works on RPi4.
+The VEC in the new BCM2711 SoC is the same as in the older BCM2835 therefore the register regions remain valid and this is why `tvservice` sitll works on RPi4.
+
+```
+ $ dtc -I dtb -O dts -o ~/devicetree.dts /boot/bcm2711-rpi-4-b.dtb
+ $ grep "vec" ~/devicetree.dts 
+		vec@7e806000 {
+			compatible = "brcm,bcm2835-vec";
+		vec = "/soc/vec@7e806000"; 
+```
 
 
 
@@ -148,7 +156,7 @@ Setting desired display mode: 'NTSC 4:3 P' ...
 Powering on SDTV with explicit settings (mode:16 aspect:1)
 ```
 
-When you exit, Emulationstation should be back to 480i (assuming `sdtv_mode=0`)
+When you exit, Emulationstation should be back to 480i (this can be changed in `runcommand-onend.sh`)
 
 ### Setting desired_mode per ROM/platform
 
