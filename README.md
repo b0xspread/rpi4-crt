@@ -41,7 +41,7 @@ I recommend you keep it that way as a boot default and Emulationstation. Try pla
 
 You can boot directly into 240p by setting `sdtv_mode=16/18` for NTSC/PAL.
 
-Mode switching between 480i and 240p via DRM/KMS is currently not possible. The `vc4` video driver used by `drm_kms_helper` will only add a single mode.
+Mode switching between 480i and 240p via DRM/KMS is currently not possible. The `vc4` video driver add a single mode.
 
 Installing X11 and adding ModeLines using `xrandr` also won't work. You will essentially resize the framebuffer, but the output will remain the same. The TV output is controlled by the VEC DAC (encoder generating the analog PAL or NTSC composite signal)
 
