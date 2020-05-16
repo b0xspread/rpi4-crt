@@ -69,7 +69,7 @@ class MyHandler(FileSystemEventHandler):
                     break
                 else:
                     print('Waiting for retroarch to start...')
-                    self.runcmd(mode)
+                    self.runcmd("tvservice -s")
                     time.sleep(RETROARCH_WAIT_INTERVAL);
 
         
