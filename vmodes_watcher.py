@@ -8,15 +8,34 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.events import FileModifiedEvent
 import psutil
 
-state_path =  '/opt/retropie/configs/all/desired_mode/'
-state_file = 'value'
+STATE_PATH =  '/opt/retropie/configs/all/desired_mode/'
+STATE_FILE = 'value'
+
+# Number of checkIfProcessRunning probes
+RETROARCH_WAIT_PERIODS = 20
+
+# Interval between probes (seconds)
+RETROARCH_WAIT_INTERVAL = 0.5
+
+# Presumed retroarch startup time
+RETROARCH_SDL_WAIT = 3
+
+# watcher sleep interval after handling event
+WATCHDOG_SLEEP = 0
 
 
 class MyHandler(FileSystemEventHandler):
-   
+
     def __init__(self):
         print('Starting watcher...')
-        self.last_modified = datetime.now()    
+        self.last_modified = datetime.now()
+
+    def runcmd(self, cmd):
+        p0 = Popen("%s" % (cmd) , shell=True, stdout=PIPE, stderr=PIPE)
+        out, err = p0.communicate()
+        print(out.decode(sys.getdefaultencoding()).strip())
+        print(err.decode(sys.getdefaultencoding()).strip())
+        return out, err, p0.returncode;
 
     def checkIfProcessRunning(self, processName):
         for proc in psutil.process_iter():
@@ -28,35 +47,39 @@ class MyHandler(FileSystemEventHandler):
         return False;
 
     def on_modified(self, event):
-        if datetime.now() - self.last_modified < timedelta(seconds=1):
+        print(event)
+        if datetime.now() - self.last_modified < timedelta(seconds=WATCHDOG_SLEEP):
             return        
-        if isinstance(event, FileModifiedEvent) and event.src_path == state_path + state_file :
-            for i in range(1, 10):
+        if isinstance(event, FileModifiedEvent) and event.src_path == STATE_PATH + STATE_FILE :
+            mode = open(STATE_PATH + STATE_FILE).read().strip()
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]")
+            print("Desired mode state file modified")
+            for i in range(1, RETROARCH_WAIT_PERIODS):
                 if self.checkIfProcessRunning('retroarch'):
-                    mode = open(state_path + state_file).read().strip()
-                    print(f"Setting desired display mode: '{mode}' ...")
-                    time.sleep(2)
-                    p0 = Popen("tvservice -c '%s'" % (mode) , shell=True, stdout=PIPE, stderr=PIPE)
-                    out, err = p0.communicate()
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]")
+                    print(f"Retroarch started...setting desired display mode: '{mode}' in {RETROARCH_SDL_WAIT} seconds' ...")
+                    time.sleep(RETROARCH_SDL_WAIT)
+                    out, err, returncode = self.runcmd(mode)
 
-                    if p0.returncode == 0:
-                        print(out.decode(sys.getdefaultencoding()).strip())
-                        p0 = Popen("fbset -depth 8; fbset -depth 32;", shell=True, stdout=PIPE, stderr=PIPE)
-                        out, err = p0.communicate()
+                    if returncode == 0:
+                        self.runcmd("fbset -depth 8; fbset -depth 32;")
                     else:
                         print(f"Failed: {err.decode(sys.getdefaultencoding()).strip()}" , file=sys.stderr)
+
                     break
                 else:
                     print('Waiting for retroarch to start...')
-                    time.sleep(1);
+                    self.runcmd(mode)
+                    time.sleep(RETROARCH_WAIT_INTERVAL);
 
+        
 
             
 
 if __name__ == "__main__":
     event_handler = MyHandler()
     observer = Observer()
-    observer.schedule(event_handler, path=state_path, recursive=False)
+    observer.schedule(event_handler, path=STATE_PATH, recursive=False)
     observer.start()
 
     try:
